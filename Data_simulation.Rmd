@@ -89,7 +89,6 @@ g <- gstat(
 ) # create gstat object
 
 set.seed(123)
-
 w_dat <- data.frame(predict(g, newdata = w_dat, nsim = n_frames)) # simulate random field data. 
 
 ```
@@ -105,7 +104,7 @@ sim_w1 <- ggplot(
     fill = Temperature)
   ) + 
   geom_raster() + 
-  scale_fill_gradientn(colours = rainbow(7)) +
+  scale_fill_gradientn(colours = rainbow(7), limits = c(-4,4)) +
   labs(x = "", y = "") +
   theme(legend.position="none") +
   ggtitle("Weather frame 1")
@@ -118,7 +117,7 @@ sim_w2 <- ggplot(
     fill = Temperature)
   ) + 
   geom_raster() + 
-  scale_fill_gradientn(colours = rainbow(7)) +
+  scale_fill_gradientn(colours = rainbow(7), limits = c(-4,4)) +
   labs(x = "", y = "") +
   theme(legend.position="none") +
   ggtitle("Weather frame 2")
@@ -131,7 +130,7 @@ sim_w3 <- ggplot(
     fill = Temperature)
   ) + 
   geom_raster() + 
-  scale_fill_gradientn(colours = rainbow(7)) +
+  scale_fill_gradientn(colours = rainbow(7), limits = c(-4,4)) +
   labs(x = "", y = "") +
   theme(legend.position="none") +
   ggtitle("Weather frame 3")
@@ -173,10 +172,7 @@ g_c <- gstat(
 ) # create gstat object
 
 set.seed(456)
-
 c_dat <- data.frame(predict(g_c, newdata = c_dat, nsim = 1)) # simulate random field data
-#names(dat)[3] <- 'z'
-#head(dat) 
 
 ggplot(
   c_dat %>% rename(z = sim1),
@@ -186,7 +182,7 @@ ggplot(
     fill = z)
   ) + 
   geom_raster() + 
-  scale_fill_gradientn(colours = rainbow(7)) +
+  scale_fill_gradientn(colours = rainbow(7), limits = c(10, 21)) +
   labs(x = "", y = "", z = "") +
   theme(legend.position="none")
 ```
@@ -224,7 +220,6 @@ l_c <- gstat(
 ) # create gstat object
 
 set.seed(789)
-
 l_dat <- data.frame(predict(l_c, newdata = l_dat, nsim = 1)) # simulate random field data
 #names(dat)[3] <- 'z'
 #head(dat) 
@@ -237,7 +232,7 @@ ggplot(
     fill = z)
   ) + 
   geom_raster() + 
-  scale_fill_gradientn(colours = rainbow(7)) +
+  scale_fill_gradientn(colours = rainbow(7), limits = c(-3,3)) +
   labs(x = "", y = "") +
   theme(legend.position="none")
 ```
@@ -261,7 +256,7 @@ ggplot(
     fill = z)
   ) + 
   geom_raster() + 
-  scale_fill_gradientn(colours = rainbow(7)) +
+  scale_fill_gradientn(colours = rainbow(7), limits = c(11, 23)) +
   labs(x = "", y = "") +
   theme(legend.position="none")
 ```
@@ -274,17 +269,17 @@ sim_dat$x <- w_dat$x
 sim_dat$y <- w_dat$y
 
 sim1_plot <- ggplot(
-  sim_dat,
+  sim_dat %>% rename(z = sim1),
   aes(
     x = x,
     y = y,
-    fill = sim1)
+    fill = z)
   ) + 
   geom_raster() + 
-  scale_fill_gradientn(colours = rainbow(7)) +
+  scale_fill_gradientn(colours = rainbow(7), limits = c(11, 24)) +
   labs(x = "", y = "") +
-  theme(legend.position="none") +
-  ggtitle("Sim 1")
+  #theme(legend.position="none") +
+  ggtitle("Simulation 1")
 
 sim2_plot <- ggplot(
   sim_dat,
@@ -294,7 +289,7 @@ sim2_plot <- ggplot(
     fill = sim2)
   ) + 
   geom_raster() + 
-  scale_fill_gradientn(colours = rainbow(7)) +
+  scale_fill_gradientn(colours = rainbow(7), limits = c(11, 24)) +
   labs(x = "", y = "") +
   theme(legend.position="none") +
   ggtitle("Sim 2")
@@ -308,12 +303,12 @@ sim3_plot <- ggplot(
     fill = sim3)
   ) + 
   geom_raster() + 
-  scale_fill_gradientn(colours = rainbow(7)) +
+  scale_fill_gradientn(colours = rainbow(7), limits = c(11, 24)) +
   labs(x = "", y = "") +
   theme(legend.position="none")   +
   ggtitle("Sim 3")
 
-sim1_plot + sim2_plot + sim3_plot
+sim1_plot + sim2_plot + sim3_plot + plot_layout(guides = 'collect')
 ```
 
 Sample `r x_max` x coordinates and `r y_max` y coordinates for each of the `r n_frames` uniformly. 
@@ -322,6 +317,8 @@ Sample `r x_max` x coordinates and `r y_max` y coordinates for each of the `r n_
 
 set.seed(123)
 x_obs = lapply(1:n_frames, function(x) sample(1:x_max, observations_per_frame, replace = TRUE))
+
+set.seed(456)
 y_obs = lapply(1:n_frames, function(x) sample(1:x_max, observations_per_frame, replace = TRUE))
 
 observations <- 
@@ -350,19 +347,19 @@ obs1_plot <- ggplot(
     fill = z)
   ) + 
   geom_raster() + 
-  scale_fill_gradientn(colours = rainbow(7)) +
+  scale_fill_gradientn(colours = rainbow(7), limits = c(11, 24)) +
   labs(x = "", y = "") +
   theme(legend.position="none")   +
   ggtitle("Observations 1")
 
-obs1_plot + sim1_plot
+obs1_plot + sim1_plot + plot_layout(guides = 'collect')
 
 ```
 
 
 Serialize data.
 
-```{r serialize}
+```{r serialize, echo=FALSE}
 write_csv(sim_dat, "data_sim/sim_dat_truth.csv")
 foo <- lapply(
   1:n_frames,

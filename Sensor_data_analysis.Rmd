@@ -1,0 +1,99 @@
+---
+title: "Sensor data analysis"
+author: "Lauri Lovén"
+date: "5/8/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      include = FALSE,
+                      warning = FALSE,
+                      message = FALSE,
+                      fig.width = 6,
+                      fig.height = 4,
+                      fig.path = 'img/',
+                      cache = TRUE,
+                      autodep = TRUE)
+require(tidyverse)
+require(modelr)
+require(lubridate)
+require(maptools)
+require(rgeos)
+require(ggmap)
+#require(ggbiplot)
+require(sjPlot)
+
+```
+
+## Simulated data
+
+```{r data_sim_read, include=TRUE}
+
+```
+
+
+##  Real data
+
+We have data from Jan 2018 -- Mar 2018. 
+```{r data_real_read, include=TRUE}
+dat <- read_csv("data_parsed/sensor_data_full.csv")  %>%
+  filter(tstamp > ymd("20150101")) %>%
+  filter(tstamp < ymd("20170101"))
+
+```
+
+
+Sample a subset of 1000 samples of both mobile and stationary sensor readings.
+
+```{r data_sample, include=TRUE}
+dat_mob_sample <- dat %>% 
+  filter(mobile == TRUE) %>% 
+  sample_n(10000)
+
+dat_stat_sample <- dat %>% 
+  filter(mobile == FALSE) %>% 
+  sample_n(1000)
+
+```
+
+
+Plot observations on map.
+
+```{r data_map_viz, include = TRUE}
+hel_map <- get_map(
+  unlist(geocode("Fastholma")), 
+  zoom = 11,
+  maptype = "toner-2010",
+  color="bw"
+)
+
+ggmap(hel_map) +
+  geom_point(
+    data = dat_mob_sample,
+    mapping = aes(x = lon, y = lat),
+    size = 1, color = "darkred", shape = 21, fill = "darkred") +
+  geom_point(
+    data = dat_stat_sample,
+    mapping = aes(x = lon, y = lat),
+    size = 3, color = "blue", shape = 21, fill = "blue")
+  
+```
+
+Plot mobile observations as a time series.
+
+```{r dat_time_viz, include = TRUE}
+ggplot(data = dat_mob_sample,
+       mapping = aes(x = tstamp, y = tsurf)) +
+  geom_point()
+
+```
+
+Plot static observations as a time series.
+
+```{r dat_time_viz, include = TRUE}
+ggplot(data = dat_stat_sample,
+       mapping = aes(x = tstamp, y = tsurf)) +
+  geom_point()
+
+```

@@ -37,9 +37,11 @@ require(sjPlot)
 
 We have data from Jan 2018 -- Mar 2018. 
 ```{r data_real_read, include=TRUE}
-dat <- read_csv("data_parsed/sensor_data_full.csv")  %>%
-  filter(tstamp > ymd("20150101")) %>%
-  filter(tstamp < ymd("20170101"))
+dat <- read_csv("data_parsed/sensor_data_2018.csv")  %>%
+  filter(tstamp > ymd("20180101")) %>%
+  filter(tstamp < ymd("20180401")) %>%
+  filter(tsurf < 100) %>%  # filter out obvious observation errors
+  filter(tsurf > -50) 
 
 ```
 

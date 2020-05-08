@@ -1,5 +1,5 @@
 ---
-title: "Temperature interpolation"
+title: "Distributed interpolation"
 author: "Lauri Lovén"
 date: "29/4/2020"
 output: html_document
@@ -24,13 +24,19 @@ require(ggmap)
 #require(ggbiplot)
 require(sjPlot)
 
-source("Data_parser.R")
 ```
 
-##  Data
+## Simulated data
+
+```{r data_sim_read, include=TRUE}
+
+```
+
+
+##  Real data
 
 We have data from Jan 2015 -- Dec 2016. 
-```{r data_read, include=TRUE}
+```{r data_real_read, include=TRUE}
 dat <- read_csv("data_parsed/sensor_data_full.csv")  %>%
   filter(tstamp > ymd("20150101")) %>%
   filter(tstamp < ymd("20170101"))
@@ -89,214 +95,6 @@ Plot static observations as a time series.
 ggplot(data = dat_stat_sample,
        mapping = aes(x = tstamp, y = tsurf)) +
   geom_point()
-
-```
-
-We divide the data into two sets as follows:
-
-1. Training set:  90%
-2. Evaluation set: 10% 
-
-This will give us three winters worth of data for training, and one winter for testing. The Training set will be used for estimating the parameters of the prediction models. The Evaluation set will only be used for assessing the quality of the built models.
-
-```{r data_division, include=TRUE}
-#dat_crop <- dat %>% 
-#  select(tstamp, tempair) %>%
-#  select(-v_tempdew)    #, -t_flow, -v_rdwarning)
-
-#dat_train <- dat %>% filter(v_tstamp > ymd("2016-04-30")) 
-#dat_test <- dat %>% filter(v_tstamp <= ymd("2016-04-30"))
-
-## set the seed to make your partition reproductible
-set.seed(123)
-
-smp_size <- floor(0.90 * nrow(dat_crop))
-train_ind <- sample(seq_len(nrow(dat_crop)), size = smp_size)
-
-dat_train <- dat_crop[train_ind, ]
-dat_test <- dat_crop[-train_ind, ]
-
-
-
-```
-
-In total there are `r nrow(dat)` observations: 
- * `r nrow(dat_train)` for training and 
- * `r nrow(dat_test)` for testing. 
-
-### Training set
-
-#### Vaisala training data 
-
-Vaisala weather station takes measurements once per every 10min. We interpolated these to 1/min (by eg. monotonic spline) for better resolution. 
-
-The Vaisala weather station location is depicted in the map below. 
-```{r vaisala_map, include=TRUE}
-latlong = "+init=epsg:4326"
-vaisala_coords <- matrix(c(60.25159, 25.06451,
-                           60.22939, 24.90504,
-                           60.16408, 24.85246,
-                           60.16612, 24.8909,
-                           60.26203, 25.16633,
-                           60.26203, 25.16633,
-                           60.24139, 25.15323), ncol = 2, byrow = TRUE)
-vaisala_sp <- SpatialPoints(vaisala_coords, proj4string = CRS(latlong))
-
-# Plot the location of the Vaisala weather station.
-#hel_map <- get_map(unlist(geocode("Kyläsaari")), zoom = 11)
-hel_map <- get_map(unlist(geocode("Kustaankartano")), zoom = 11)
-ggmap(hel_map) +
-  geom_point(data = as.data.frame(vaisala_sp), 
-             mapping = aes(x = coords.x2, y = coords.x1),
-             size = 5, color = "darkred", shape = 3)  +
-  geom_point(data = as.data.frame(vaisala_sp), 
-             mapping = aes(x = coords.x2, y = coords.x1),
-             size = 3, color = "darkred")  +
-  labs(x = "", y = "") #+
-  #theme(axis.text = element_blank())# ,
-        #axis.ticks = element_blank())
-
-# Remove obsolete vars.
-rm(vaisala_coords, vaisala_sp)
-
-```
-
-#### Teconer training data
-
-Summary of frict_tec, the friction measurement:
-```{r teconer_test_summary, include=TRUE}
-round(summary(dat_train$f_Friction), 3)
-ggplot() +
-  geom_density(aes(dat_train$f_Friction))
-```
-
-The diagram below shows the locations of a random sample of 1000 observations. The observations fall in ...
-
-
-```{r teconer_test_sample, include=TRUE}
-#dat_train_sample <- dat_train[sample(1:nrow(dat_train) , 1000),]
-ggmap(hel_map) +
-  geom_point(data = dat_train,
-             mapping = aes(x = f_Lon, y = f_Lat),
-             size = 1)  +
-  labs(x = "", y = "") +
-  theme_minimal()
-
-rm(train_teconer_sample)
-```
-
-#### Digiroad road network
-
-The Digiroad database includes the road network as spatial lines, as illustrated in the map below.  
-```{r digiroad_spatial, include=TRUE}
-digiroad_network <- get_digiroad_spatial()
-
-ggmap(get_map(unlist(geocode("Oulu")), zoom = 11)) +
-  geom_path(data = digiroad_network, mapping = aes(x = long, y = lat, group = group),
-            size = 1) +
-  labs(x = "", y = "") +
-  theme(axis.text = element_blank() ,axis.ticks = element_blank())
-
-```
-
-## Classification
-
-
-```{r h2o_class_setup}
-library(h2o)
-h2o.init()
-h2o.removeAll()
-
-# Discard some columns fram the training data
-#train_h2o <- dat_train %>%
-#  select(v_tstamp, f_Friction_c, v_tempair:v_moist, t_flow, d_vtype:d_ncrossings)
-
-#test_h20 <- dat_test %>%
-#  select(v_tstamp, f_Friction_c, v_tempair:v_moist, t_flow, d_vtype:d_ncrossings)
-
-#sample_size <- floor(0.90 * nrow(train_h2o))
-#train_ind <- sample(1:nrow(train_h2o), sample_size)
-#train <- train_h2o[train_ind,]
-#test <- train_h2o[-train_ind,]
-
-train_hex <- as.h2o(dat_train[,-1]) # discard tstamp
-test_hex <- as.h2o(dat_test[,-1]) # discard tstamp
-
-train_hex[1:5,]
-test_hex[1:5,]
-
-```
-
-```{r h20_randomforest_2}
- rf2 <- h2o.randomForest(         ## h2o.randomForest function
-   training_frame = train_hex,        ## the H2O frame for training
-   validation_frame = test_hex,      ## the H2O frame for validation (not required)
-   x = 2:21,                        ## the predictor columns, by column index
-   y = 1,                          ## the target index (what we are predicting)
-   model_id = "rf_covType_v2",    ## name the model in H2O
-                                  ##   not required, but helps use Flow
-   ntrees = 200,                  ## use a maximum of 200 trees to create the
-                                  ##  random forest model. The default is 50.
-                                  ##  I have increased it because I will let 
-                                  ##  the early stopping criteria decide when
-                                  ##  the random forest is sufficiently accurate
-   max_depth = 30,
-   stopping_rounds = 2,           ## Stop fitting new trees when the 2-tree
-                                  ##  average is within 0.001 (default) of 
-                                  ##  the prior two 2-tree averages.
-                                  ##  Can be thought of as a convergence setting
-   stopping_tolerance = 1e-2,
-   score_each_iteration = T,      ## Predict against training and validation for
-                                  ##  each tree. Default will skip several.
-   seed = 3000000)                ## Set the random seed so that this can be
-                                  ##  reproduced.
-
-summary(rf2)
-h2o.confusionMatrix(rf2, newdata=test_hex)
-h2o.varimp_plot(rf2, num_of_features = 23)
-
-
-```
-
-
-```{r h2o_gbm3}
-
-gbm3 <- h2o.gbm(
-  training_frame = train_hex,        ## the H2O frame for training
-  validation_frame = test_hex,      ## the H2O frame for validation (not required)
-  x = 2:24,                        ## the predictor columns, by column index
-  y = 1,                          ## the target index (what we are predicting)
-  ntrees = 50,                ## add a few trees (from 20, though default is 50)
-  learn_rate = 0.3,           ## increase the learning rate even further
-  max_depth = 10,             ## 
-  sample_rate = 0.7,          ## use a random 70% of the rows to fit each tree
-  col_sample_rate = 0.7,       ## use 70% of the columns to fit each tree
-  stopping_rounds = 2,        ## 
-  stopping_tolerance = 0.01,  ##
-  score_each_iteration = T,   ##
-  model_id = "gbm_covType3",     ## name the model in H2O
-  seed = 2000000)                ## Set the random seed for reproducability
-
-###############################################################################
-summary(gbm3) 
-```
-
-```{r deep_learning, include=T}
-dl <- h2o.deeplearning(x = 2:24,
-                       y = 1,
-                       training_frame = train_hex,
-                       validation_frame = test_hex,
-                       model_id = "dl_covType_v1",
-                       l1 = 1e-5,
-                       l2 = 1e-5,
-                       epochs = 10000)
-#summary(dl)
-
-h2o.performance(dl)
-
-h2o.confusionMatrix(dl)
-h2o.confusionMatrix(dl, newdata=test_hex)
-h2o.varimp_plot(dl, num_of_features = 23)
 
 ```
 

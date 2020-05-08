@@ -1,0 +1,339 @@
+---
+title: "Data simulation for distributed interpolation"
+author: "Lauri Lovén"
+date: "5/7/2020"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,
+                      fig.path = 'img/',
+                      fig.width = 5,
+                      fig.height = 4,
+                      cache = TRUE,
+                      autodep = TRUE)
+library(gstat)
+library(sp)
+library(ggplot2)
+library(viridis)
+library(tidyverse)
+theme_set(theme_minimal())
+```
+
+# Data
+
+We compose the temperature field out of two components:
+
+  1. the ambient weather conditions, following a smooth, slowly varying 2-dimensional Matern variogram model; and
+  1. a 2-dimensional Gaussian variogram with short and long distance autocorrelation, simulating the surface contour map as
+     well as long distance autocorrelation such as traffic, subway lines etc.
+
+We set the following as constants.
+
+```{r const, echo=TRUE}
+x_max <- 100 # x coordinates range from 1 to x_max
+y_max <- 100 # y coordinates range from 1 to y_max
+x <- 1:x_max # x coordinates
+y <- 1:y_max # y coordinates
+
+dist_long <- 100
+dist_short <- 10
+static_intercept <- 15
+weather_intercept <- 0
+
+n_frames <- 100
+observations_per_frame <- 100 
+```
+
+
+## Ambient weather conditions
+
+Simulate the ambient weather conditions with a zero-centred Matern variogram. 
+
+```{r weather}
+
+w_dat <- expand.grid(x = x, y = y) # create data frame with all combinations
+
+w_dat$z <- 1 # initialize z variable
+coordinates(w_dat) <- ~x + y # set coordinates
+gridded(w_dat) <- TRUE # specify data is gridded
+
+g <- gstat(
+  id= 'z',
+  formula = z ~ 1,
+  model = vgm(
+    psill = 1,
+    #psill = 10,
+    #model = 'Sph',
+    model = 'Mat',
+    range = dist_long,
+    kappa = 1,
+    #kappa = 0.1,
+    #anis = c(45 ,0.1)
+    anis = c(90 , 0.9)
+  ),
+  data = w_dat,
+  dummy = TRUE,
+  beta = weather_intercept,
+  maxdist = dist_short,
+  nmax = 10
+) # create gstat object
+
+set.seed(123)
+
+##
+##  HOX! Adjust nsim for more or less training data.
+##
+w_dat <- data.frame(predict(g, newdata = w_dat, nsim = n_frames)) # simulate random field data. first 100 are the training set, the last 20 are the test set.
+#names(dat)[3] <- 'z'
+#head(dat) 
+```
+
+Plot three different weather conditions.
+
+```{r plot_weather_sample}
+ggplot(
+  w_dat %>% rename(Temperature = sim1),
+  aes(
+    x = x,
+    y = y,
+    fill = Temperature)
+  ) + 
+  geom_raster() + 
+  scale_fill_gradientn(colours = rainbow(7)) +
+  labs(x = "", y = "") +
+  theme(legend.position="none")
+
+ggplot(
+  w_dat %>% rename(Temperature = sim2),
+  aes(
+    x = x,
+    y = y,
+    fill = Temperature)
+  ) + 
+  geom_raster() + 
+  scale_fill_gradientn(colours = rainbow(7)) +
+  labs(x = "", y = "") +
+  theme(legend.position="none")
+
+ggplot(
+  w_dat %>% rename(Temperature = sim3),
+  aes(
+    x = x,
+    y = y,
+    fill = Temperature)
+  ) + 
+  geom_raster() + 
+  scale_fill_gradientn(colours = rainbow(7)) +
+  labs(x = "", y = "") +
+  theme(legend.position="none")
+```
+
+## Spatial autocorrelation map
+
+Simulate the contour map with an exp variogram with intercept 15. 
+
+```{r contour}
+c_dat <- expand.grid(x = x, y = y) # create data frame with all combinations
+c_dat$z <- 1 # initialize z variable
+coordinates(c_dat) <- ~x + y # set coordinates
+gridded(c_dat) <- TRUE # specify data is gridded
+
+g_c <- gstat(
+  id= 'z',
+  formula = z ~ 1 + y,
+  #locations = ~x + y,
+  model = vgm(
+    #psill = 0.9,
+    psill = 1,
+    model = 'Exp',
+    #model = 'Mat',
+    range = dist_short,
+    kappa = 1,
+    #kappa = 0.1,
+    #anis = c(45 ,0.1)
+    anis = c(45 , 0.5)
+  ),
+  data = c_dat,
+  dummy = TRUE,
+  beta = c(static_intercept,0.03,0),
+  maxdist = dist_short,
+  nmax = 10
+) # create gstat object
+
+set.seed(456)
+
+c_dat <- data.frame(predict(g_c, newdata = c_dat, nsim = 1)) # simulate random field data
+#names(dat)[3] <- 'z'
+#head(dat) 
+
+ggplot(
+  c_dat %>% rename(z = sim1),
+  aes(
+    x = x,
+    y = y,
+    fill = z)
+  ) + 
+  geom_raster() + 
+  scale_fill_gradientn(colours = rainbow(7)) +
+  labs(x = "", y = "", z = "") +
+  theme(legend.position="none")
+```
+
+
+Finally, simulate long-distance covariance structures with an exp variogram. 
+
+```{r long_autocov}
+l_dat <- expand.grid(x = x, y = y) # create data frame with all combinations
+l_dat$z <- 1 # initialize z variable
+coordinates(l_dat) <- ~x + y # set coordinates
+gridded(l_dat) <- TRUE # specify data is gridded
+
+l_c <- gstat(
+  id= 'z',
+  formula = z ~ 1 + y,
+  #locations = ~x + y,
+  model = vgm(
+    #psill = 0.9,
+    psill = 1,
+    model = 'Mat',
+    #model = 'Mat',
+    range = dist_long,
+    kappa = 1
+    #kappa = 0.1,
+    #anis = c(45 ,0.1)
+    #anis = c(45 , 0.5)
+  ),
+  data = l_dat,
+  dummy = TRUE,
+  #beta = c(1,0.03,0),
+  beta = c(0),
+  maxdist = dist_short,
+  nmax = 10
+) # create gstat object
+
+set.seed(789)
+
+l_dat <- data.frame(predict(l_c, newdata = l_dat, nsim = 1)) # simulate random field data
+#names(dat)[3] <- 'z'
+#head(dat) 
+
+ggplot(
+  l_dat %>% rename(z = sim1),
+  aes(
+    x = x,
+    y = y,
+    fill = z)
+  ) + 
+  geom_raster() + 
+  scale_fill_gradientn(colours = rainbow(7)) +
+  labs(x = "", y = "") +
+  theme(legend.position="none")
+```
+
+## Compilation
+
+The static element comprises the contour map and the long-distance autocorrelation. This is what we are trying to capture with our models.
+
+```{r compiliation_static}
+static_dat <- tibble(
+  x = l_dat$x,   
+  y = l_dat$y,
+  z = l_dat$sim1 + c_dat$sim1
+)
+
+ggplot(
+  static_dat,
+  aes(
+    x = x,
+    y = y,
+    fill = z)
+  ) + 
+  geom_raster() + 
+  scale_fill_gradientn(colours = rainbow(7)) +
+  labs(x = "", y = "") +
+  theme(legend.position="none")
+```
+
+Weather data provides the perturbations to the static data set. Plot the first simulation and store the data.
+
+```{r compiliation_final}
+sim_dat <- as_tibble(lapply(w_dat[,-c(1,2)], function(x) x + static_dat$z))
+sim_dat$x <- w_dat$x
+sim_dat$y <- w_dat$y
+
+ggplot(
+  sim_dat,
+  aes(
+    x = x,
+    y = y,
+    fill = sim1)
+  ) + 
+  geom_raster() + 
+  scale_fill_gradientn(colours = rainbow(7)) +
+  labs(x = "", y = "") +
+  theme(legend.position="none")
+
+ggplot(
+  sim_dat,
+  aes(
+    x = x,
+    y = y,
+    fill = sim2)
+  ) + 
+  geom_raster() + 
+  scale_fill_gradientn(colours = rainbow(7)) +
+  labs(x = "", y = "") +
+  theme(legend.position="none")
+
+
+ggplot(
+  sim_dat,
+  aes(
+    x = x,
+    y = y,
+    fill = sim3)
+  ) + 
+  geom_raster() + 
+  scale_fill_gradientn(colours = rainbow(7)) +
+  labs(x = "", y = "") +
+  theme(legend.position="none")  
+```
+
+Sample `r x_max` x coordinates and `r y_max` y coordinates for each of the `r n_frames` uniformly. 
+
+```{r observations}
+
+set.seed(123)
+x_obs = lapply(1:n_frames, function(x) sample(1:x_max, observations_per_frame, replace = TRUE))
+y_obs = lapply(1:n_frames, function(x) sample(1:x_max, observations_per_frame, replace = TRUE))
+
+observations <- 
+    lapply(
+      1:n_frames,  
+      function(n) {
+        sim_frame <- sim_dat[[n]]
+        obs_x <- x_obs[[n]] 
+        obs_y <- y_obs[[n]]
+        offsets <- (obs_y - 1) * x_max + obs_y
+        return(tibble(x=obs_x, y=obs_y, temp=sim_frame[offsets]))
+      }
+    )
+  
+```
+
+
+
+Serialize data.
+
+```{r serialize}
+write_csv(sim_dat, "data_sim/sim_dat_truth.csv")
+lapply(
+  1:n_frames,
+  function(n) {
+    write_csv(observations[[n]], paste("data_sim/sim_dat_obs", n, ".csv", sep = ""))
+  }
+)
+       
+```

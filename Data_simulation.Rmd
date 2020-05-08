@@ -16,9 +16,12 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,
 library(gstat)
 library(sp)
 library(ggplot2)
+library(patchwork)
 library(viridis)
 library(tidyverse)
 theme_set(theme_minimal())
+
+library
 ```
 
 # Data
@@ -92,8 +95,8 @@ w_dat <- data.frame(predict(g, newdata = w_dat, nsim = n_frames)) # simulate ran
 
 Plot three different weather conditions.
 
-```{r plot_weather_sample}
-ggplot(
+```{r plot_weather_sample, include = TRUE, fig.width=6, fig.height=2}
+sim_w1 <- ggplot(
   w_dat %>% rename(Temperature = sim1),
   aes(
     x = x,
@@ -103,9 +106,10 @@ ggplot(
   geom_raster() + 
   scale_fill_gradientn(colours = rainbow(7)) +
   labs(x = "", y = "") +
-  theme(legend.position="none")
+  theme(legend.position="none") +
+  ggtitle("Weather frame 1")
 
-ggplot(
+sim_w2 <- ggplot(
   w_dat %>% rename(Temperature = sim2),
   aes(
     x = x,
@@ -115,9 +119,10 @@ ggplot(
   geom_raster() + 
   scale_fill_gradientn(colours = rainbow(7)) +
   labs(x = "", y = "") +
-  theme(legend.position="none")
+  theme(legend.position="none") +
+  ggtitle("Weather frame 2")
 
-ggplot(
+sim_w3 <- ggplot(
   w_dat %>% rename(Temperature = sim3),
   aes(
     x = x,
@@ -127,7 +132,11 @@ ggplot(
   geom_raster() + 
   scale_fill_gradientn(colours = rainbow(7)) +
   labs(x = "", y = "") +
-  theme(legend.position="none")
+  theme(legend.position="none") +
+  ggtitle("Weather frame 3")
+
+sim_w1 + sim_w2 + sim_w3
+
 ```
 
 ## Spatial autocorrelation map
@@ -258,12 +267,12 @@ ggplot(
 
 Weather data provides the perturbations to the static data set. Plot the first simulation and store the data.
 
-```{r compiliation_final}
+```{r compiliation_final, fig.height=2, fig.width=6}
 sim_dat <- as_tibble(lapply(w_dat[,-c(1,2)], function(x) x + static_dat$z))
 sim_dat$x <- w_dat$x
 sim_dat$y <- w_dat$y
 
-ggplot(
+sim1_plot <- ggplot(
   sim_dat,
   aes(
     x = x,
@@ -273,9 +282,10 @@ ggplot(
   geom_raster() + 
   scale_fill_gradientn(colours = rainbow(7)) +
   labs(x = "", y = "") +
-  theme(legend.position="none")
+  theme(legend.position="none") +
+  ggtitle("Sim 1")
 
-ggplot(
+sim2_plot <- ggplot(
   sim_dat,
   aes(
     x = x,
@@ -285,10 +295,11 @@ ggplot(
   geom_raster() + 
   scale_fill_gradientn(colours = rainbow(7)) +
   labs(x = "", y = "") +
-  theme(legend.position="none")
+  theme(legend.position="none") +
+  ggtitle("Sim 2")
 
 
-ggplot(
+sim3_plot <- ggplot(
   sim_dat,
   aes(
     x = x,
@@ -298,7 +309,10 @@ ggplot(
   geom_raster() + 
   scale_fill_gradientn(colours = rainbow(7)) +
   labs(x = "", y = "") +
-  theme(legend.position="none")  
+  theme(legend.position="none")   +
+  ggtitle("Sim 3")
+
+sim1_plot + sim2_plot + sim3_plot
 ```
 
 Sample `r x_max` x coordinates and `r y_max` y coordinates for each of the `r n_frames` uniformly. 
@@ -316,24 +330,45 @@ observations <-
         sim_frame <- sim_dat[[n]]
         obs_x <- x_obs[[n]] 
         obs_y <- y_obs[[n]]
-        offsets <- (obs_y - 1) * x_max + obs_y
-        return(tibble(x=obs_x, y=obs_y, temp=sim_frame[offsets]))
+        offsets <- (obs_y - 1) * x_max + obs_x
+        return(tibble(x=obs_x, y=obs_y, z=sim_frame[offsets]))
       }
     )
   
 ```
 
+Plot the first of the simulated observation sets.
+
+```{r include=TRUE, fig.width=4, fig.height=2}
+
+obs1_plot <- ggplot(
+  observations[[1]],
+  aes(
+    x = x,
+    y = y,
+    fill = z)
+  ) + 
+  geom_raster() + 
+  scale_fill_gradientn(colours = rainbow(7)) +
+  labs(x = "", y = "") +
+  theme(legend.position="none")   +
+  ggtitle("Observations 1")
+
+obs1_plot + sim1_plot
+
+```
 
 
 Serialize data.
 
 ```{r serialize}
 write_csv(sim_dat, "data_sim/sim_dat_truth.csv")
-lapply(
+foo <- lapply(
   1:n_frames,
   function(n) {
     write_csv(observations[[n]], paste("data_sim/sim_dat_obs", n, ".csv", sep = ""))
   }
 )
-       
+rm(foo)
+print("Simulated truth and observations serialized.")     
 ```

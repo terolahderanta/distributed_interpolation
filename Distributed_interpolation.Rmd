@@ -35,7 +35,7 @@ require(sjPlot)
 
 ##  Real data
 
-We have data from Jan 2015 -- Dec 2016. 
+We have data from Jan 2018 -- Mar 2018. 
 ```{r data_real_read, include=TRUE}
 dat <- read_csv("data_parsed/sensor_data_full.csv")  %>%
   filter(tstamp > ymd("20150101")) %>%

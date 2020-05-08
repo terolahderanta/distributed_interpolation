@@ -26,7 +26,7 @@ library
 
 # Data
 
-We compose the temperature field out of two components:
+We compose the temperature field frames out of two components:
 
   1. the ambient weather conditions, following a smooth, slowly varying 2-dimensional Matern variogram model; and
   1. a 2-dimensional Gaussian variogram with short and long distance autocorrelation, simulating the surface contour map as
@@ -35,18 +35,23 @@ We compose the temperature field out of two components:
 We set the following as constants.
 
 ```{r const, echo=TRUE}
+# grid
 x_max <- 100 # x coordinates range from 1 to x_max
 y_max <- 100 # y coordinates range from 1 to y_max
 x <- 1:x_max # x coordinates
 y <- 1:y_max # y coordinates
 
+# variogram hyperparameters
 dist_long <- 100
 dist_short <- 10
 static_intercept <- 15
 weather_intercept <- 0
 
-n_frames <- 100
-observations_per_frame <- 100 
+##
+##  HOX! Adjust n_frames for more or less training data.
+##
+n_frames <- 100                # data frames
+observations_per_frame <- 100  # number of sensor observations for each frame
 ```
 
 
@@ -85,12 +90,8 @@ g <- gstat(
 
 set.seed(123)
 
-##
-##  HOX! Adjust nsim for more or less training data.
-##
-w_dat <- data.frame(predict(g, newdata = w_dat, nsim = n_frames)) # simulate random field data. first 100 are the training set, the last 20 are the test set.
-#names(dat)[3] <- 'z'
-#head(dat) 
+w_dat <- data.frame(predict(g, newdata = w_dat, nsim = n_frames)) # simulate random field data. 
+
 ```
 
 Plot three different weather conditions.

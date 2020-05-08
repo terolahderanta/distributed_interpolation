@@ -335,24 +335,29 @@ observations <-
   
 ```
 
+
+
 Plot the first of the simulated observation sets.
+```{r include=TRUE, fig.width=4, fig.height=6}
+plot_obs <- function(n) {
+  ggplot(
+    observations[[n]],
+    aes(
+      x = x,
+      y = y,
+      fill = z)
+    ) + 
+    geom_raster() + 
+    scale_fill_gradientn(colours = rainbow(7), limits = c(11, 24)) +
+    labs(x = "", y = "") +
+    theme(legend.position="none")   +
+    ggtitle(paste("Observations ", n))
+}
 
-```{r include=TRUE, fig.width=4, fig.height=2}
-
-obs1_plot <- ggplot(
-  observations[[1]],
-  aes(
-    x = x,
-    y = y,
-    fill = z)
-  ) + 
-  geom_raster() + 
-  scale_fill_gradientn(colours = rainbow(7), limits = c(11, 24)) +
-  labs(x = "", y = "") +
-  theme(legend.position="none")   +
-  ggtitle("Observations 1")
-
-obs1_plot + sim1_plot + plot_layout(guides = 'collect')
+obs1_plot <- plot_obs(1)
+obs2_plot <- plot_obs(2)
+obs3_plot <- plot_obs(3)
+(obs1_plot | sim1_plot) / (obs2_plot | sim2_plot) / (obs3_plot | sim3_plot) + plot_layout(guides = 'collect') 
 
 ```
 

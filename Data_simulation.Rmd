@@ -292,7 +292,7 @@ sim2_plot <- ggplot(
   scale_fill_gradientn(colours = rainbow(7), limits = c(11, 24)) +
   labs(x = "", y = "") +
   theme(legend.position="none") +
-  ggtitle("Sim 2")
+  ggtitle("Simulation 2")
 
 
 sim3_plot <- ggplot(
@@ -306,7 +306,7 @@ sim3_plot <- ggplot(
   scale_fill_gradientn(colours = rainbow(7), limits = c(11, 24)) +
   labs(x = "", y = "") +
   theme(legend.position="none")   +
-  ggtitle("Sim 3")
+  ggtitle("Simulation 3")
 
 sim1_plot + sim2_plot + sim3_plot + plot_layout(guides = 'collect')
 ```
